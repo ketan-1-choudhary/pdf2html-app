@@ -1,7 +1,6 @@
 
 import { createError, defineEventHandler, readBody } from 'h3'
-
-
+import { registerUser } from '../services/signup.service'
 
 export default defineEventHandler(async (event) => {
 	const body = await readBody<{
@@ -16,7 +15,5 @@ export default defineEventHandler(async (event) => {
 		})
 	}
 
-	
-
-	return { user_id: body.user_id, type: 'USERDATA' }
+	return await registerUser(body)
 })
