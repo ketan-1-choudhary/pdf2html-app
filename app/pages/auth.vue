@@ -47,7 +47,7 @@ async function submit() {
   try {
     const res = await $fetch<{ username: string }>(
       isSignUp.value ? '/api/auth/signup' : '/api/auth/login',
-      { method: 'POST', body: { username: username.value, password: password.value } },
+      { method: 'POST', body: { user_id: username.value, password: password.value } },
     )
     user.value = res.username
     await router.push('/')
