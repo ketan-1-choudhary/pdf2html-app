@@ -3,9 +3,14 @@
     <!-- Header -->
     <header class="header">
       <h1>PDF → HTML Converter</h1>
-      <button class="btn btn--primary" @click="createDraft" :disabled="isCreating">
-        {{ isCreating ? 'Creating…' : '+ New draft' }}
-      </button>
+      <div class="header-actions">
+        <button class="btn btn--primary" @click="createDraft" :disabled="isCreating">
+          {{ isCreating ? 'Creating…' : '+ New draft' }}
+        </button>
+        <button class="btn btn--outline" @click="logout" :disabled="isLoggingOut">
+          {{ isLoggingOut ? 'Logging out…' : 'Logout' }}
+        </button>
+      </div>
     </header>
 
     <!-- Drafts -->
@@ -67,6 +72,23 @@ async function createDraft() {
     await refresh()
   } finally {
     isCreating.value = false
+  }
+}
+
+const user = useCurrentUser()
+const isLoggingOut = ref(false)
+
+async function logout() {
+  isLoggingOut.value = true
+  try {
+    await $fetch('/api/auth/logout', { method: 'POST' })
+    user.value = null
+    await navigateTo('/auth')
+  } catch (err: any) {
+    console.error('[logout] failed:', err)
+    listError.value = 'Unable to log out right now.'
+  } finally {
+    isLoggingOut.value = false
   }
 }
 </script>
@@ -176,4 +198,12 @@ async function createDraft() {
 .btn:disabled { opacity: 0.5; cursor: not-allowed; }
 .btn--primary { background: #e94560; color: #fff; }
 .btn--primary:hover:not(:disabled) { background: #c73652; }
+.btn--outline { background: transparent; color: #aaa; border: 1px solid #0f3460; }
+.btn--outline:hover:not(:disabled) { border-color: #aaa; color: #fff; }
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
 </style>

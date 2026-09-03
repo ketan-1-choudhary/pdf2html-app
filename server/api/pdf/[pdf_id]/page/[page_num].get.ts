@@ -1,6 +1,6 @@
 import { createError, defineEventHandler, getRouterParam } from 'h3'
-import { getPage } from '../../../../../services/draft.service'
-import { requireUserId } from '../../../../../utils/session'
+import { getPage } from '../../../../services/draft.service'
+import { requireUserId } from '../../../../utils/session'
 
 export default defineEventHandler(async (event) => {
 	const user_id = requireUserId(event)
