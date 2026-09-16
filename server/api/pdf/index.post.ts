@@ -1,7 +1,7 @@
 import { createError, defineEventHandler, readBody } from 'h3'
-import { createPdf } from '../../services/draft.service'
+import { createPdf } from '../../services/pdf.service'
 import { requireUserId } from '../../utils/session'
-import type { CreatePdfRequestBody } from '../../services/interfaces/draft.interface'
+import type { CreatePdfRequestBody } from '../../services/interfaces/pdf.interface'
 
 export default defineEventHandler(async (event) => {
 	const user_id = requireUserId(event)

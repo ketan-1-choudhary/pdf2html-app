@@ -7,28 +7,8 @@
       <span class="page-tag">Page {{ pageNum }}</span>
     </header>
 
-    <!-- Upload Section -->
     <section class="upload-section">
       <div class="upload-row">
-        <!-- PDF -->
-        <div class="upload-slot" :class="{ 'upload-slot--active': pdfFile }">
-          <input ref="pdfInput" type="file" accept=".pdf" class="file-input" @change="onPdfChange" />
-          <button class="upload-slot__btn" @click="pdfInput?.click()">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-              <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
-              <polyline points="14 2 14 8 20 8" />
-            </svg>
-            <span class="upload-slot__label">{{ pdfFile ? pdfFile.name : 'Upload PDF' }}</span>
-            <span v-if="pdfFile" class="file-size">{{ formatFileSize(pdfFile.size) }}</span>
-          </button>
-          <button v-if="pdfFile" class="btn btn--primary btn--sm" @click.stop="uploadPdf" :disabled="isUploading">
-            {{ isUploading ? 'Saving…' : uploadStatus === 'done' ? '✓ Saved' : 'Save' }}
-          </button>
-        </div>
-
-        <div class="upload-divider" />
-
-        <!-- HTML -->
         <div class="upload-slot" :class="{ 'upload-slot--active': htmlFile }">
           <input ref="htmlInput" type="file" accept=".html,.htm" class="file-input" @change="onHtmlFileChange" />
           <button class="upload-slot__btn" @click="htmlInput?.click()">
@@ -53,8 +33,6 @@
             <span class="upload-slot__label">{{ cssFile ? cssFile.name : 'Upload CSS' }}</span>
           </button>
         </div>
-
-        <p v-if="uploadError" class="error-msg">{{ uploadError }}</p>
       </div>
     </section>
 
@@ -62,7 +40,10 @@
     <section ref="workspaceRef" class="workspace">
       <div class="pane pane--editor">
         <div class="pane__toolbar">
-          <span class="pane__title">HTML Editor</span>
+          <div class="tabs">
+            <button class="tab" :class="{ 'tab--active': activeTab === 'html' }" @click="activeTab = 'html'">HTML</button>
+            <button class="tab" :class="{ 'tab--active': activeTab === 'css' }" @click="activeTab = 'css'">CSS</button>
+          </div>
           <div class="toolbar-actions">
             <button class="btn btn--outline btn--sm" @click="formatHtml">Format</button>
             <button class="btn btn--primary btn--sm" @click="saveHtml" :disabled="isSaving">
@@ -75,14 +56,24 @@
         <div class="editor-wrap">
           <ClientOnly>
             <codemirror
+              v-if="activeTab === 'html'"
               v-model="htmlContent"
-              :extensions="extensions"
+              :extensions="htmlExtensions"
+              :style="{ height: '100%', width: '100%' }"
+              :autofocus="true"
+              @change="onEditorChange"
+            />
+            <codemirror
+              v-else
+              v-model="cssContent"
+              :extensions="cssExtensions"
               :style="{ height: '100%', width: '100%' }"
               :autofocus="true"
               @change="onEditorChange"
             />
             <template #fallback>
-              <textarea v-model="htmlContent" class="fallback-textarea" spellcheck="false" />
+              <textarea v-if="activeTab === 'html'" v-model="htmlContent" class="fallback-textarea" spellcheck="false" />
+              <textarea v-else v-model="cssContent" class="fallback-textarea" spellcheck="false" />
             </template>
           </ClientOnly>
         </div>
@@ -116,6 +107,7 @@
 import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import { Codemirror } from 'vue-codemirror'
 import { html } from '@codemirror/lang-html'
+import { css as cssLang } from '@codemirror/lang-css'
 import { oneDark } from '@codemirror/theme-one-dark'
 import { EditorView } from '@codemirror/view'
 
@@ -127,12 +119,18 @@ const pageNum = computed(() => Number(route.params.page_num) || 1)
 // ── Editor ──────────────────────────────────────────────────────────────────
 const htmlContent = ref('')
 
-const extensions = [
+const htmlExtensions = [
   html(),
   oneDark,
   EditorView.lineWrapping,
 ]
+const cssExtensions = [
+  cssLang(),
+  oneDark,
+  EditorView.lineWrapping,
+]
 
+const activeTab = ref<'html' | 'css'>('html')
 const livePreview = ref(true)
 
 function onEditorChange() {
@@ -141,22 +139,15 @@ function onEditorChange() {
 
 // ── Preview ──────────────────────────────────────────────────────────────────
 const previewFrame = ref<HTMLIFrameElement | null>(null)
-const cssBlobUrl = ref('')
 const cssContent = ref('')
 
-function getPreviewHtml() {
-  let content = htmlContent.value
-  if (cssBlobUrl.value) {
-    // swap every relative <link stylesheet> href with the uploaded CSS blob URL
-    content = content.replace(
-      /(<link[^>]+rel=["']stylesheet["'][^>]+href=["'])([^"']+)(["'])/gi,
-      `$1${cssBlobUrl.value}$3`
-    ).replace(
-      /(<link[^>]+href=["'])([^"']+)(["'][^>]+rel=["']stylesheet["'])/gi,
-      `$1${cssBlobUrl.value}$3`
-    )
-  }
-  return content
+// Embeds the draft CSS as a <style> tag so it applies without needing a <link>.
+function composeHtml(htmlText: string, cssText: string) {
+  if (!cssText.trim()) return htmlText
+  const styleTag = `<style>\n${cssText}\n</style>`
+  if (/<\/head>/i.test(htmlText)) return htmlText.replace(/<\/head>/i, `${styleTag}\n</head>`)
+  if (/<body[^>]*>/i.test(htmlText)) return htmlText.replace(/(<body[^>]*>)/i, `$1\n${styleTag}`)
+  return `${styleTag}\n${htmlText}`
 }
 
 function refreshPreview() {
@@ -165,42 +156,13 @@ function refreshPreview() {
   const doc = frame.contentDocument || frame.contentWindow?.document
   if (!doc) return
   doc.open()
-  doc.write(getPreviewHtml())
+  doc.write(composeHtml(htmlContent.value, cssContent.value))
   doc.close()
 }
 
-watch([htmlContent, cssBlobUrl], () => {
+watch([htmlContent, cssContent], () => {
   if (livePreview.value) refreshPreview()
 })
-
-// ── PDF Upload ───────────────────────────────────────────────────────────────
-const pdfInput = ref<HTMLInputElement | null>(null)
-const pdfFile = ref<File | null>(null)
-const isUploading = ref(false)
-const uploadStatus = ref<'idle' | 'done'>('idle')
-const uploadError = ref('')
-
-function onPdfChange(e: Event) {
-  const file = (e.target as HTMLInputElement).files?.[0]
-  if (file) { pdfFile.value = file; uploadStatus.value = 'idle'; uploadError.value = '' }
-}
-
-async function uploadPdf() {
-  if (!pdfFile.value) return
-  isUploading.value = true
-  uploadError.value = ''
-  try {
-    const form = new FormData()
-    form.append('pdf', pdfFile.value)
-    await $fetch('/api/upload-pdf', { method: 'POST', body: form })
-    uploadStatus.value = 'done'
-  } catch (err: any) {
-    console.error('[uploadPdf] failed:', err)
-    uploadError.value = err?.data?.statusMessage ?? 'Upload failed.'
-  } finally {
-    isUploading.value = false
-  }
-}
 
 // ── HTML / CSS Upload ────────────────────────────────────────────────────────
 const htmlInput = ref<HTMLInputElement | null>(null)
@@ -216,24 +178,12 @@ async function onHtmlFileChange(e: Event) {
   refreshPreview()
 }
 
-// Keeps the CSS text (for drafts) and a blob URL (for preview <link>) in sync.
-function setCssText(text: string) {
-  cssContent.value = text
-  if (cssBlobUrl.value) URL.revokeObjectURL(cssBlobUrl.value)
-  cssBlobUrl.value = URL.createObjectURL(new Blob([text], { type: 'text/css' }))
-}
-
 async function onCssFileChange(e: Event) {
   const file = (e.target as HTMLInputElement).files?.[0]
   if (!file) return
   cssFile.value = file
-  setCssText(await file.text())
-}
-
-function formatFileSize(bytes: number) {
-  if (bytes < 1024) return bytes + ' B'
-  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB'
-  return (bytes / (1024 * 1024)).toFixed(1) + ' MB'
+  cssContent.value = await file.text()
+  refreshPreview()
 }
 
 // ── Draft autosave (IndexedDB → DynamoDB) ─────────────────────────────────────
@@ -258,7 +208,7 @@ async function restoreDraft() {
     const data = await draftSync.load()
     if (data) {
       htmlContent.value = data.html ?? ''
-      setCssText(data.css ?? '')
+      cssContent.value = data.css ?? ''
     }
   } finally {
     await nextTick()
@@ -292,12 +242,9 @@ async function saveHtml() {
   isSaving.value = true
   saveStatus.value = 'idle'
   try {
-    const baseName = pdfFile.value
-      ? pdfFile.value.name.replace(/\.pdf$/i, '')
-      : 'output'
     const res = await $fetch<{ filename: string }>('/api/save-html', {
       method: 'POST',
-      body: { filename: baseName + '.html', content: htmlContent.value },
+      body: { filename: `${pdfId.value}.html`, content: composeHtml(htmlContent.value, cssContent.value) },
     })
     savedFilename.value = res.filename
     saveStatus.value = 'done'
@@ -357,7 +304,6 @@ function stopResize() {
 onUnmounted(() => {
   document.removeEventListener('mousemove', doResize)
   document.removeEventListener('mouseup', stopResize)
-  if (cssBlobUrl.value) URL.revokeObjectURL(cssBlobUrl.value)
 })
 </script>
 
@@ -504,6 +450,25 @@ onUnmounted(() => {
   letter-spacing: 0.06em;
   color: #888;
 }
+.tabs {
+  display: flex;
+  gap: 0.25rem;
+}
+.tab {
+  background: transparent;
+  border: none;
+  color: #888;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 0.15rem 0.5rem;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: color 0.15s, background 0.15s;
+}
+.tab:hover { color: #fff; }
+.tab--active { color: #fff; background: #0f3460; }
 .toolbar-actions {
   display: flex;
   align-items: center;

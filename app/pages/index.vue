@@ -13,6 +13,22 @@
       </div>
     </header>
 
+    <section class="upload-section">
+      <div class="upload-row">
+        <div class="upload-slot" :class="{ 'upload-slot--active': pdfFile }">
+          <input ref="pdfInput" type="file" accept=".pdf" class="file-input" @change="onPdfChange" />
+          <button class="upload-slot__btn" @click="pdfInput?.click()">
+            <span class="upload-slot__label">{{ pdfFile ? pdfFile.name : 'Upload PDF' }}</span>
+            <span v-if="pdfFile" class="file-size">{{ formatFileSize(pdfFile.size) }}</span>
+          </button>
+          <button v-if="pdfFile" class="btn btn--primary btn--sm" @click.stop="uploadPdf" :disabled="isUploading">
+            {{ isUploading ? 'Saving...' : uploadStatus === 'done' ? 'Uploaded' : 'Upload' }}
+          </button>
+        </div>
+        <p v-if="uploadError" class="error-msg">{{ uploadError }}</p>
+      </div>
+    </section>
+
     <!-- Drafts -->
     <section class="drafts">
       <p v-if="listError" class="error-msg">{{ listError }}</p>
@@ -57,6 +73,45 @@ const { data, pending, refresh } = await useFetch<{ drafts: PdfDraft[] }>('/api/
 })
 
 const drafts = computed(() => data.value?.drafts ?? [])
+
+const pdfInput = ref<HTMLInputElement | null>(null)
+const pdfFile = ref<File | null>(null)
+const isUploading = ref(false)
+const uploadStatus = ref<'idle' | 'done'>('idle')
+const uploadError = ref('')
+
+function onPdfChange(event: Event) {
+  const file = (event.target as HTMLInputElement).files?.[0]
+  if (!file) return
+  pdfFile.value = file
+  uploadStatus.value = 'idle'
+  uploadError.value = ''
+}
+
+async function uploadPdf() {
+  if (!pdfFile.value) return
+  isUploading.value = true
+  uploadError.value = ''
+  try {
+    const form = new FormData()
+    form.append('pdf', pdfFile.value)
+    await $fetch('/api/upload-pdf', { method: 'POST', body: form })
+    uploadStatus.value = 'done'
+    pdfFile.value = null
+    await refresh()
+  } catch (error: any) {
+    console.error('[uploadPdf] failed:', error)
+    uploadError.value = error?.data?.statusMessage ?? 'Unable to upload the PDF right now.'
+  } finally {
+    isUploading.value = false
+  }
+}
+
+function formatFileSize(bytes: number) {
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+}
 
 const isCreating = ref(false)
 
@@ -123,6 +178,35 @@ async function logout() {
   color: #e94560;
   letter-spacing: 0.03em;
 }
+
+.upload-section {
+  padding: 0.4rem 1rem;
+  flex-shrink: 0;
+  background: #16213e;
+  border-bottom: 1px solid #0f3460;
+}
+.upload-row, .upload-slot {
+  display: flex;
+  align-items: center;
+}
+.upload-row { gap: 0.5rem; flex-wrap: wrap; }
+.upload-slot { gap: 0.5rem; }
+.file-input { display: none; }
+.upload-slot__btn {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  max-width: 280px;
+  padding: 0.22rem 0.55rem;
+  color: #888;
+  background: transparent;
+  border: 1px solid #0f3460;
+  border-radius: 5px;
+  cursor: pointer;
+}
+.upload-slot--active .upload-slot__btn { color: #e0e0e0; border-color: #e94560; }
+.upload-slot__label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.file-size { color: #888; font-size: 0.72rem; white-space: nowrap; }
 
 /* Drafts */
 .drafts {
@@ -198,6 +282,7 @@ async function logout() {
 .btn:disabled { opacity: 0.5; cursor: not-allowed; }
 .btn--primary { background: #e94560; color: #fff; }
 .btn--primary:hover:not(:disabled) { background: #c73652; }
+.btn--sm { padding: 0.2rem 0.5rem; font-size: 0.75rem; }
 .btn--outline { background: transparent; color: #aaa; border: 1px solid #0f3460; }
 .btn--outline:hover:not(:disabled) { border-color: #aaa; color: #fff; }
 

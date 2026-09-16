@@ -1,8 +1,8 @@
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb'
+import { fromIni } from '@aws-sdk/credential-providers'
 
-// Region from env (AWS_REGION/AWS_DEFAULT_REGION) so it works across environments; fallback for local dev.
-export const dynamoDb = new DynamoDBClient({
-	region: process.env.AWS_REGION || process.env.AWS_DEFAULT_REGION || 'us-west-2',
-});
+const region = process.env.AWS_REGION || process.env.AWS_DEFAULT_REGION || 'ap-south-1'
+
+export const dynamoDb = new DynamoDBClient({})
 
 export default dynamoDb

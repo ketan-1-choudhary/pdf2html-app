@@ -1,7 +1,7 @@
 import { createError, defineEventHandler, getRouterParam, readBody } from 'h3'
 import { savePage } from '../../../../services/draft.service'
 import { requireUserId } from '../../../../utils/session'
-import type { SavePageRequestBody } from '../../../../services/interfaces/draft.interface'
+import type { SavePageRequestBody } from '../../../../services/interfaces/page.interface'
 
 export default defineEventHandler(async (event) => {
 	const user_id = requireUserId(event)

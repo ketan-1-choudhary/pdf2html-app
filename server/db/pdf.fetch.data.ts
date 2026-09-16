@@ -1,6 +1,6 @@
 import { createError } from 'h3'
-import { GetItemCommand, QueryCommand } from '@aws-sdk/client-dynamodb'
-import type { PageEntity, PdfEntity } from '../services/interfaces/draft.interface'
+import { QueryCommand } from '@aws-sdk/client-dynamodb'
+import type { PdfEntity } from '../services/interfaces/pdf.interface'
 import dynamoDb from '../utils/client'
 
 const TABLE_NAME = 'test-pdf-to-html-demo-table'
@@ -38,36 +38,9 @@ export async function fetchPdfList(user_id: string): Promise<PdfEntity[]> {
 		pdfs.push({
 			pdf_id: segments[0],
 			pdf_name: item.pdf_name?.S ?? 'Untitled',
+			completed_pages: Number(item.completed_pages?.N ?? 0),
+			total_pages: Number(item.total_pages?.N ?? 0),
 		})
 	}
 	return pdfs
-}
-
-export async function fetchPage(user_id: string, pdf_id: string, page_num: number): Promise<PageEntity | null> {
-	let response
-	try {
-		response = await dynamoDb.send(new GetItemCommand({
-			TableName: TABLE_NAME,
-			Key: {
-				user_id: { S: user_id },
-				type: { S: `${PDF_PREFIX}${pdf_id}#${page_num}` },
-			},
-		}))
-	} catch (error) {
-		console.error('[fetchPage] DynamoDB GetItem failed:', error)
-		throw createError({
-			statusCode: 500,
-			statusMessage: `Database error while loading the page: ${(error as Error).message}`,
-			cause: error,
-		})
-	}
-
-	if (!response.Item) return null
-
-	return {
-		pdf_id,
-		page_num,
-		html: response.Item.html?.S ?? '',
-		css: response.Item.css?.S ?? '',
-	}
 }

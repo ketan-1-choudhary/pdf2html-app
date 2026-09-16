@@ -1,5 +1,5 @@
 import { createError, defineEventHandler } from 'h3'
-import { listPdfs } from '../../services/draft.service'
+import { listPdfs } from '../../services/pdf.service'
 import { requireUserId } from '../../utils/session'
 
 export default defineEventHandler(async (event) => {
