@@ -1,14 +1,12 @@
 import { createError } from 'h3'
 import { ConditionalCheckFailedException, PutItemCommand } from '@aws-sdk/client-dynamodb'
 import type { UserDataItem } from '../services/interfaces/signup.interface'
-import dynamoDb from '../utils/client'
-
-const TABLE_NAME = 'test-pdf-to-html-demo-table'
+import dynamoDb, { DYNAMODB_TABLE_NAME } from '../utils/client'
 
 export async function putData(item: UserDataItem): Promise<UserDataItem> {
 	try {
 		await dynamoDb.send(new PutItemCommand({
-			TableName: TABLE_NAME,
+			TableName: DYNAMODB_TABLE_NAME,
 			Item: {
 				user_id: { S: item.user_id },
 				type: { S: item.type },

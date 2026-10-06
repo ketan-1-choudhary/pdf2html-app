@@ -1,9 +1,7 @@
 import { createError } from 'h3'
 import { QueryCommand } from '@aws-sdk/client-dynamodb'
 import type { PdfEntity } from '../services/interfaces/pdf.interface'
-import dynamoDb from '../utils/client'
-
-const TABLE_NAME = 'test-pdf-to-html-demo-table'
+import dynamoDb, { DYNAMODB_TABLE_NAME } from '../utils/client'
 const PDF_PREFIX = 'PDFDATA#'
 
 // Lists the PDF entities (2-segment SKs) for a user, skipping page entities.
@@ -11,7 +9,7 @@ export async function fetchPdfList(user_id: string): Promise<PdfEntity[]> {
 	let response
 	try {
 		response = await dynamoDb.send(new QueryCommand({
-			TableName: TABLE_NAME,
+			TableName: DYNAMODB_TABLE_NAME,
 			KeyConditionExpression: 'user_id = :uid AND begins_with(#type, :prefix)',
 			ExpressionAttributeNames: { '#type': 'type' },
 			ExpressionAttributeValues: {

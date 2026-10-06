@@ -24,3 +24,4 @@ export async function deletePdfObject(key: string) {
 	if (!bucket) return
 	await s3.send(new DeleteObjectCommand({ Bucket: bucket, Key: key }))
 }
+

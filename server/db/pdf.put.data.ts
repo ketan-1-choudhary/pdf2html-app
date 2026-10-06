@@ -1,15 +1,13 @@
 import { createError } from 'h3'
 import { PutItemCommand } from '@aws-sdk/client-dynamodb'
 import type { PdfEntity } from '../services/interfaces/pdf.interface'
-import dynamoDb from '../utils/client'
-
-const TABLE_NAME = 'test-pdf-to-html-demo-table'
+import dynamoDb, { DYNAMODB_TABLE_NAME } from '../utils/client'
 const PDF_PREFIX = 'PDFDATA#'
 
 export async function putPdf(user_id: string, pdf: PdfEntity): Promise<PdfEntity> {
 	try {
 		await dynamoDb.send(new PutItemCommand({
-			TableName: TABLE_NAME,
+			TableName: DYNAMODB_TABLE_NAME,
 			Item: {
 				user_id: { S: user_id },
 				type: { S: `${PDF_PREFIX}${pdf.pdf_id}` },

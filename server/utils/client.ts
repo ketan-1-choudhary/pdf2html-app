@@ -1,8 +1,12 @@
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb'
-import { fromIni } from '@aws-sdk/credential-providers'
 
-const region = process.env.AWS_REGION || process.env.AWS_DEFAULT_REGION || 'ap-south-1'
+const tableName = process.env.DYNAMODB_TABLE_NAME
+
+if (!tableName) {
+	throw new Error('DYNAMODB_TABLE_NAME environment variable is required')
+}
 
 export const dynamoDb = new DynamoDBClient({})
+export const DYNAMODB_TABLE_NAME = tableName
 
 export default dynamoDb
