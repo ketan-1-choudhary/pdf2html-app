@@ -5,7 +5,3 @@ export interface PdfEntity {
 	completed_pages: number
 	total_pages: number
 }
-
-export interface CreatePdfRequestBody {
-	pdf_name?: string
-}

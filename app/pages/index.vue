@@ -1,294 +1,178 @@
 <template>
-  <div class="app">
-    <!-- Header -->
-    <header class="header">
-      <h1>PDF → HTML Converter</h1>
-      <div class="header-actions">
-        <button class="btn btn--primary" @click="createDraft" :disabled="isCreating">
-          {{ isCreating ? 'Creating…' : '+ New draft' }}
-        </button>
-        <button class="btn btn--outline" @click="logout" :disabled="isLoggingOut">
-          {{ isLoggingOut ? 'Logging out…' : 'Logout' }}
-        </button>
-      </div>
+  <div class="relative isolate overflow-x-clip">
+    <!-- Ambient background -->
+    <div aria-hidden="true" class="pointer-events-none absolute inset-0 -z-10">
+      <div class="absolute -top-40 left-1/2 h-[560px] w-[960px] -translate-x-1/2 rounded-full bg-brand-400/25 blur-3xl dark:bg-brand-500/15" />
+      <div class="absolute top-[480px] -right-40 h-[420px] w-[420px] rounded-full bg-brand-200/40 blur-3xl dark:bg-brand-800/20" />
+      <div class="grid-bg absolute inset-x-0 top-0 h-[900px]" />
+    </div>
+
+    <!-- Nav -->
+    <header class="sticky top-0 z-30 border-b border-line/60 bg-bg/70 backdrop-blur-xl">
+      <nav class="mx-auto flex h-16 max-w-6xl items-center gap-6 px-5">
+        <AppLogo />
+        <div class="ml-6 hidden gap-6 text-sm text-muted md:flex">
+          <a href="#how" class="transition hover:text-fg">How it works</a>
+          <a href="#features" class="transition hover:text-fg">Features</a>
+        </div>
+        <div class="ml-auto flex items-center gap-2">
+          <ThemeToggle />
+          <button type="button" class="btn btn-ghost hidden sm:inline-flex" @click="openAuth('signin')">Sign in</button>
+          <button type="button" class="btn btn-primary" @click="openAuth('signup')">Get started</button>
+        </div>
+      </nav>
     </header>
 
-    <section class="upload-section">
-      <div class="upload-row">
-        <div class="upload-slot" :class="{ 'upload-slot--active': pdfFile }">
-          <input ref="pdfInput" type="file" accept=".pdf" class="file-input" @change="onPdfChange" />
-          <button class="upload-slot__btn" @click="pdfInput?.click()">
-            <span class="upload-slot__label">{{ pdfFile ? pdfFile.name : 'Upload PDF' }}</span>
-            <span v-if="pdfFile" class="file-size">{{ formatFileSize(pdfFile.size) }}</span>
+    <!-- Hero -->
+    <section class="mx-auto grid max-w-6xl items-center gap-12 px-5 pt-16 pb-20 lg:grid-cols-[1.15fr_1fr] lg:pt-24">
+      <div>
+        <span class="inline-flex items-center gap-2 rounded-full border border-brand-500/30 bg-brand-500/10 px-3 py-1 text-xs font-medium text-brand-700 dark:text-brand-300">
+          <span class="relative flex size-2">
+            <span class="absolute inline-flex size-full animate-ping rounded-full bg-brand-500 opacity-70" />
+            <span class="relative inline-flex size-2 rounded-full bg-brand-500" />
+          </span>
+          AI-powered PDF → HTML
+        </span>
+
+        <h1 class="mt-6 text-4xl font-extrabold tracking-tight text-balance sm:text-5xl lg:text-6xl">
+          PDFs, rebuilt as
+          <span class="bg-linear-to-r from-brand-500 via-brand-400 to-brand-700 bg-clip-text text-transparent dark:from-brand-300 dark:via-brand-400 dark:to-brand-500">
+            real web pages.
+          </span>
+        </h1>
+
+        <p class="mt-6 max-w-xl text-lg leading-relaxed text-pretty text-muted">
+          Drop in any PDF — even a scanned one. Reflow reads every page and rebuilds it as clean, responsive HTML and CSS you can actually edit.
+        </p>
+
+        <div class="mt-8 flex flex-wrap items-center gap-3">
+          <button type="button" class="btn btn-primary px-5 py-3 text-base" @click="openAuth('signup')">
+            Start converting
+            <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6" /></svg>
           </button>
-          <button v-if="pdfFile" class="btn btn--primary btn--sm" @click.stop="uploadPdf" :disabled="isUploading">
-            {{ isUploading ? 'Saving...' : uploadStatus === 'done' ? 'Uploaded' : 'Upload' }}
-          </button>
+          <a href="#how" class="btn btn-ghost px-5 py-3 text-base">See how it works</a>
         </div>
-        <p v-if="uploadError" class="error-msg">{{ uploadError }}</p>
+
+        <ul class="mt-10 flex flex-wrap gap-x-6 gap-y-2 text-sm text-muted">
+          <li v-for="item in heroChecks" :key="item" class="flex items-center gap-2">
+            <svg class="size-4 text-brand-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5" /></svg>
+            {{ item }}
+          </li>
+        </ul>
+      </div>
+
+      <div id="auth" class="scroll-mt-24">
+        <AuthCard v-model:mode="authMode" />
       </div>
     </section>
 
-    <!-- Drafts -->
-    <section class="drafts">
-      <p v-if="listError" class="error-msg">{{ listError }}</p>
+    <!-- Showcase -->
+    <section class="mx-auto max-w-6xl px-5 pb-24">
+      <HeroVisual />
+    </section>
 
-      <div v-if="pending" class="hint">Loading your drafts…</div>
+    <!-- How it works -->
+    <section id="how" class="scroll-mt-20 border-y border-line/70 bg-surface/60 py-24">
+      <div class="mx-auto max-w-6xl px-5">
+        <SectionHeading eyebrow="How it works" title="From PDF to web page in three steps" />
 
-      <div v-else-if="drafts.length === 0" class="empty">
-        <p>No drafts yet.</p>
-        <p class="empty__sub">Create a new draft to start editing.</p>
+        <ol class="relative mt-14 grid gap-10 md:grid-cols-3 md:gap-6">
+          <li aria-hidden="true" class="absolute top-7 right-[16%] left-[16%] hidden h-px bg-linear-to-r from-transparent via-brand-500/50 to-transparent md:block" />
+          <li v-for="(step, i) in steps" :key="step.title" class="relative text-center">
+            <div class="mx-auto grid size-14 place-items-center rounded-2xl border border-line bg-bg text-brand-600 shadow-sm dark:text-brand-300">
+              <span class="text-lg font-bold">{{ i + 1 }}</span>
+            </div>
+            <h3 class="mt-5 text-lg font-semibold">{{ step.title }}</h3>
+            <p class="mx-auto mt-2 max-w-xs text-sm leading-relaxed text-muted">{{ step.body }}</p>
+          </li>
+        </ol>
       </div>
+    </section>
 
-      <ul v-else class="draft-grid">
-        <li v-for="draft in drafts" :key="draft.pdf_id" class="draft-card">
-          <NuxtLink :to="`/pdf/${draft.pdf_id}/page/1`" class="draft-card__link">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-              <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
-              <polyline points="14 2 14 8 20 8" />
+    <!-- Features -->
+    <section id="features" class="mx-auto max-w-6xl scroll-mt-20 px-5 py-24">
+      <SectionHeading eyebrow="Features" title="Everything you need to set a PDF free" />
+
+      <div class="mt-14 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+        <article
+          v-for="f in features"
+          :key="f.title"
+          class="card group relative overflow-hidden p-6 transition duration-300 hover:-translate-y-1 hover:border-brand-500/50 hover:shadow-xl hover:shadow-brand-900/5"
+        >
+          <div class="pointer-events-none absolute -top-16 -right-16 size-40 rounded-full bg-brand-400/0 blur-2xl transition duration-500 group-hover:bg-brand-400/20" />
+          <div class="grid size-11 place-items-center rounded-xl bg-brand-500/10 text-brand-600 ring-1 ring-brand-500/20 dark:text-brand-300">
+            <svg class="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <path v-for="d in f.icon" :key="d" :d="d" />
             </svg>
-            <span class="draft-card__name">{{ draft.pdf_name }}</span>
-          </NuxtLink>
-        </li>
-      </ul>
+          </div>
+          <h3 class="mt-5 font-semibold">{{ f.title }}</h3>
+          <p class="mt-2 text-sm leading-relaxed text-muted">{{ f.body }}</p>
+        </article>
+      </div>
     </section>
+
+    <!-- Footer -->
+    <footer class="border-t border-line/70">
+      <div class="mx-auto flex max-w-6xl flex-col gap-8 px-5 py-12 md:flex-row md:items-center md:justify-between">
+        <div>
+          <AppLogo />
+          <p class="mt-3 max-w-xs text-sm text-muted">PDFs, rebuilt as real web pages.</p>
+        </div>
+        <div class="flex flex-wrap gap-6 text-sm text-muted">
+          <a href="#how" class="hover:text-fg">How it works</a>
+          <a href="#features" class="hover:text-fg">Features</a>
+          <button type="button" class="cursor-pointer hover:text-fg" @click="openAuth('signin')">Sign in</button>
+        </div>
+      </div>
+      <div class="border-t border-line/70 py-6 text-center text-xs text-muted">
+        © {{ year }} Reflow. All rights reserved.
+      </div>
+    </footer>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+const authMode = ref<'signin' | 'signup'>('signin')
+const year = new Date().getFullYear()
 
-interface PdfDraft {
-  pdf_id: string
-  pdf_name: string
+function openAuth(mode: 'signin' | 'signup') {
+  authMode.value = mode
+  document.getElementById('auth')?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  nextTick(() => document.querySelector<HTMLInputElement>('#auth input')?.focus({ preventScroll: true }))
 }
 
-const listError = ref('')
+const heroChecks = ['Works on scanned PDFs', 'Pixel-faithful layout', 'Editable HTML & CSS']
 
-// SSR-friendly fetch of the current user's drafts.
-const { data, pending, refresh } = await useFetch<{ drafts: PdfDraft[] }>('/api/pdf', {
-  onResponseError() {
-    listError.value = 'Unable to load your drafts right now.'
-  },
+const steps = [
+  { title: 'Upload your PDF', body: 'Drag in a document of any length. Reflow splits it into pages and queues each one.' },
+  { title: 'AI rebuilds each page', body: 'Layout, typography and images are detected and recreated as semantic, responsive markup.' },
+  { title: 'Edit & export', body: 'Fine-tune the HTML and CSS side by side with a live preview, then ship it.' },
+]
+
+const features = [
+  { title: 'Pixel-faithful layout', body: 'Columns, spacing and type are matched against the rendered page — not guessed from text.', icon: ['M4 4h16v16H4z', 'M4 10h16M10 10v10'] },
+  { title: 'Scanned PDFs welcome', body: 'Image-only documents go through OCR, so nothing is out of reach.', icon: ['M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2', 'M7 12h10'] },
+  { title: 'Page-by-page control', body: 'Every page is its own draft, so you can open, tweak and re-save pages independently.', icon: ['M8 3h9l4 4v11a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z', 'M3 7v13a2 2 0 0 0 2 2h11'] },
+  { title: 'Live code editor', body: 'HTML and CSS tabs with syntax highlighting and an instant, resizable preview.', icon: ['M16 18l6-6-6-6', 'M8 6l-6 6 6 6', 'M14 4l-4 16'] },
+  { title: 'Responsive by default', body: 'Output reflows gracefully from wide desktops down to phones.', icon: ['M2 5h14v10H2z', 'M18 9h4v11h-4z', 'M6 19h6'] },
+  { title: 'Autosave & sync', body: 'Edits are saved locally first and synced to the cloud, so you never lose work.', icon: ['M7 18a5 5 0 1 1 .9-9.9A6 6 0 0 1 19 10a4 4 0 0 1-1 7.9', 'M12 13v8M9 16l3-3 3 3'] },
+]
+
+const SectionHeading = defineComponent({
+  props: { eyebrow: String, title: String },
+  setup: props => () => h('div', { class: 'mx-auto max-w-2xl text-center' }, [
+    h('p', { class: 'text-sm font-semibold tracking-wide text-brand-600 uppercase dark:text-brand-300' }, props.eyebrow),
+    h('h2', { class: 'mt-3 text-3xl font-bold tracking-tight text-balance sm:text-4xl' }, props.title),
+  ]),
 })
-
-const drafts = computed(() => data.value?.drafts ?? [])
-
-const pdfInput = ref<HTMLInputElement | null>(null)
-const pdfFile = ref<File | null>(null)
-const isUploading = ref(false)
-const uploadStatus = ref<'idle' | 'done'>('idle')
-const uploadError = ref('')
-
-function onPdfChange(event: Event) {
-  const file = (event.target as HTMLInputElement).files?.[0]
-  if (!file) return
-  pdfFile.value = file
-  uploadStatus.value = 'idle'
-  uploadError.value = ''
-}
-
-async function uploadPdf() {
-  if (!pdfFile.value) return
-  isUploading.value = true
-  uploadError.value = ''
-  try {
-    const form = new FormData()
-    form.append('pdf', pdfFile.value)
-    await $fetch('/api/upload-pdf', { method: 'POST', body: form })
-    uploadStatus.value = 'done'
-    pdfFile.value = null
-    await refresh()
-  } catch (error: any) {
-    console.error('[uploadPdf] failed:', error)
-    uploadError.value = error?.data?.statusMessage ?? 'Unable to upload the PDF right now.'
-  } finally {
-    isUploading.value = false
-  }
-}
-
-function formatFileSize(bytes: number) {
-  if (bytes < 1024) return `${bytes} B`
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
-}
-
-const isCreating = ref(false)
-
-async function createDraft() {
-  isCreating.value = true
-  listError.value = ''
-  try {
-    const res = await $fetch<{ pdf_id: string }>('/api/pdf', { method: 'POST', body: {} })
-    await navigateTo(`/pdf/${res.pdf_id}/page/1`)
-  } catch (err: any) {
-    console.error('[createDraft] failed:', err)
-    listError.value = err?.data?.statusMessage ?? 'Unable to create a draft right now.'
-    await refresh()
-  } finally {
-    isCreating.value = false
-  }
-}
-
-const user = useCurrentUser()
-const isLoggingOut = ref(false)
-
-async function logout() {
-  isLoggingOut.value = true
-  try {
-    await $fetch('/api/auth/logout', { method: 'POST' })
-    user.value = null
-    await navigateTo('/auth')
-  } catch (err: any) {
-    console.error('[logout] failed:', err)
-    listError.value = 'Unable to log out right now.'
-  } finally {
-    isLoggingOut.value = false
-  }
-}
 </script>
 
 <style scoped>
-* { box-sizing: border-box; }
-
-.app {
-  display: flex;
-  flex-direction: column;
-  height: 100vh;
-  overflow: hidden;
-  background: #1a1a2e;
-  color: #e0e0e0;
-  font-family: 'Segoe UI', system-ui, sans-serif;
-}
-
-/* Header */
-.header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0.6rem 1.2rem;
-  background: #16213e;
-  border-bottom: 1px solid #0f3460;
-  flex-shrink: 0;
-}
-.header h1 {
-  margin: 0;
-  font-size: 1.1rem;
-  font-weight: 600;
-  color: #e94560;
-  letter-spacing: 0.03em;
-}
-
-.upload-section {
-  padding: 0.4rem 1rem;
-  flex-shrink: 0;
-  background: #16213e;
-  border-bottom: 1px solid #0f3460;
-}
-.upload-row, .upload-slot {
-  display: flex;
-  align-items: center;
-}
-.upload-row { gap: 0.5rem; flex-wrap: wrap; }
-.upload-slot { gap: 0.5rem; }
-.file-input { display: none; }
-.upload-slot__btn {
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
-  max-width: 280px;
-  padding: 0.22rem 0.55rem;
-  color: #888;
-  background: transparent;
-  border: 1px solid #0f3460;
-  border-radius: 5px;
-  cursor: pointer;
-}
-.upload-slot--active .upload-slot__btn { color: #e0e0e0; border-color: #e94560; }
-.upload-slot__label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.file-size { color: #888; font-size: 0.72rem; white-space: nowrap; }
-
-/* Drafts */
-.drafts {
-  flex: 1;
-  overflow: auto;
-  padding: 1.2rem;
-}
-
-.hint { color: #888; font-size: 0.9rem; }
-
-.empty {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  height: 100%;
-  color: #888;
-  text-align: center;
-}
-.empty p { margin: 0.2rem 0; }
-.empty__sub { font-size: 0.85rem; color: #666; }
-
-.draft-grid {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: 0.8rem;
-}
-
-.draft-card {
-  background: #16213e;
-  border: 1px solid #0f3460;
-  border-radius: 8px;
-  transition: border-color 0.15s, transform 0.15s;
-}
-.draft-card:hover { border-color: #e94560; transform: translateY(-2px); }
-
-.draft-card__link {
-  display: flex;
-  align-items: center;
-  gap: 0.6rem;
-  padding: 1rem;
-  color: #e0e0e0;
-  text-decoration: none;
-}
-.draft-card__link svg { color: #e94560; flex-shrink: 0; }
-
-.draft-card__name {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: 0.9rem;
-}
-
-.error-msg {
-  margin: 0 0 0.8rem;
-  font-size: 0.85rem;
-  color: #e94560;
-}
-
-/* Buttons */
-.btn {
-  padding: 0.35rem 0.9rem;
-  border-radius: 4px;
-  font-size: 0.82rem;
-  font-weight: 500;
-  cursor: pointer;
-  border: none;
-  transition: opacity 0.15s, background 0.15s;
-}
-.btn:disabled { opacity: 0.5; cursor: not-allowed; }
-.btn--primary { background: #e94560; color: #fff; }
-.btn--primary:hover:not(:disabled) { background: #c73652; }
-.btn--sm { padding: 0.2rem 0.5rem; font-size: 0.75rem; }
-.btn--outline { background: transparent; color: #aaa; border: 1px solid #0f3460; }
-.btn--outline:hover:not(:disabled) { border-color: #aaa; color: #fff; }
-
-.header-actions {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
+.grid-bg {
+  background-image:
+    linear-gradient(to right, color-mix(in srgb, var(--text) 6%, transparent) 1px, transparent 1px),
+    linear-gradient(to bottom, color-mix(in srgb, var(--text) 6%, transparent) 1px, transparent 1px);
+  background-size: 48px 48px;
+  mask-image: radial-gradient(ellipse 70% 60% at 50% 0%, #000 40%, transparent 100%);
 }
 </style>

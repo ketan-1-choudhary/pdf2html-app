@@ -1,4 +1,4 @@
-import { DeleteObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3'
+import { DeleteObjectCommand, GetObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3'
 import { fromIni } from '@aws-sdk/credential-providers'
 
 const region = process.env.AWS_REGION || process.env.AWS_DEFAULT_REGION || 'ap-south-1'
@@ -23,5 +23,10 @@ export async function uploadPdfObject(key: string, body: Buffer, contentType: st
 export async function deletePdfObject(key: string) {
 	if (!bucket) return
 	await s3.send(new DeleteObjectCommand({ Bucket: bucket, Key: key }))
+}
+
+export async function getPdfAssetObject(key: string) {
+	if (!bucket) throw new Error('S3 bucket is not configured')
+	return s3.send(new GetObjectCommand({ Bucket: bucket, Key: key }))
 }
 

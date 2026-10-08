@@ -1,7 +1,8 @@
 import { createError } from 'h3'
 import { fetchPage } from '../db/page.fetch.data'
-import { putPage } from '../db/page.put.data'
+import { updatePage } from '../db/page.put.data'
 import type { PageEntity } from './interfaces/page.interface'
+import { transformPageHtml } from '../utils/page-assets'
 
 export async function getPage(user_id: string, pdf_id: string, page_num: number): Promise<PageEntity> {
 	if (!pdf_id || !Number.isInteger(page_num) || page_num < 1) {
@@ -12,7 +13,7 @@ export async function getPage(user_id: string, pdf_id: string, page_num: number)
 	if (!page) {
 		throw createError({ statusCode: 404, statusMessage: 'Draft page not found' })
 	}
-	return page
+	return { ...page, html: transformPageHtml(page.html, pdf_id, page_num, true) }
 }
 
 export async function savePage(user_id: string, pdf_id: string, page_num: number, html: string, css: string): Promise<PageEntity> {
@@ -20,5 +21,10 @@ export async function savePage(user_id: string, pdf_id: string, page_num: number
 		throw createError({ statusCode: 400, statusMessage: 'Invalid draft or page reference' })
 	}
 
-	return putPage(user_id, { pdf_id, page_num, html: html ?? '', css: css ?? '' })
+	return updatePage(user_id, {
+		pdf_id,
+		page_num,
+		html: transformPageHtml(html ?? '', pdf_id, page_num, false),
+		css: css ?? '',
+	})
 }

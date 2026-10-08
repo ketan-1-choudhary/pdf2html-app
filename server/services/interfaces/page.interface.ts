@@ -6,6 +6,11 @@ export interface PageEntity {
 	css: string
 }
 
+export interface PageAssetStream {
+	body: ReadableStream<Uint8Array>
+	contentType: string
+}
+
 export interface SavePageRequestBody {
 	html?: string
 	css?: string

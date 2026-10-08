@@ -1,59 +1,56 @@
 <template>
-  <div class="app">
+  <div class="flex h-screen flex-col overflow-hidden bg-bg text-fg">
     <!-- Header -->
-    <header class="header">
-      <NuxtLink to="/" class="back-link">← Drafts</NuxtLink>
-      <h1>PDF → HTML Converter</h1>
-      <span class="page-tag">Page {{ pageNum }}</span>
+    <header class="flex h-14 shrink-0 items-center gap-3 border-b border-line bg-surface px-4">
+      <NuxtLink
+        to="/pdf"
+        class="inline-flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-sm text-muted transition hover:bg-surface-2 hover:text-fg"
+      >
+        <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6" /></svg>
+        Documents
+      </NuxtLink>
+      <span class="h-5 w-px bg-line" />
+      <AppLogo to="/pdf" class="hidden sm:inline-flex" />
+      <span class="rounded-md bg-brand-500/10 px-2 py-0.5 text-xs font-semibold text-brand-700 ring-1 ring-brand-500/25 dark:text-brand-300">
+        Page {{ pageNum }}
+      </span>
+
+      <div class="ml-auto flex items-center gap-2">
+        <ThemeToggle />
+      </div>
     </header>
 
-    <section class="upload-section">
-      <div class="upload-row">
-        <div class="upload-slot" :class="{ 'upload-slot--active': htmlFile }">
-          <input ref="htmlInput" type="file" accept=".html,.htm" class="file-input" @change="onHtmlFileChange" />
-          <button class="upload-slot__btn" @click="htmlInput?.click()">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-              <polyline points="16 18 22 12 16 6" />
-              <polyline points="8 6 2 12 8 18" />
-            </svg>
-            <span class="upload-slot__label">{{ htmlFile ? htmlFile.name : 'Upload HTML' }}</span>
-          </button>
-        </div>
-
-        <div class="upload-divider" />
-
-        <!-- CSS -->
-        <div class="upload-slot" :class="{ 'upload-slot--active': cssFile }">
-          <input ref="cssInput" type="file" accept=".css" class="file-input" @change="onCssFileChange" />
-          <button class="upload-slot__btn" @click="cssInput?.click()">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-              <rect x="3" y="3" width="18" height="18" rx="2" />
-              <path d="M7 8h10M7 12h6M7 16h8" />
-            </svg>
-            <span class="upload-slot__label">{{ cssFile ? cssFile.name : 'Upload CSS' }}</span>
-          </button>
-        </div>
-      </div>
-    </section>
-
     <!-- Editor + Preview -->
-    <section ref="workspaceRef" class="workspace">
-      <div class="pane pane--editor">
-        <div class="pane__toolbar">
-          <div class="tabs">
-            <button class="tab" :class="{ 'tab--active': activeTab === 'html' }" @click="activeTab = 'html'">HTML</button>
-            <button class="tab" :class="{ 'tab--active': activeTab === 'css' }" @click="activeTab = 'css'">CSS</button>
+    <section ref="workspaceRef" class="flex flex-1 overflow-hidden">
+      <div class="flex min-w-0 flex-1 flex-col overflow-hidden">
+        <div class="flex h-11 shrink-0 items-center justify-between gap-3 border-b border-line bg-surface px-3">
+          <div class="flex rounded-lg bg-surface-2 p-0.5">
+            <button
+              v-for="tab in (['html', 'css'] as const)"
+              :key="tab"
+              type="button"
+              class="cursor-pointer rounded-md px-3 py-1 text-xs font-semibold tracking-wide uppercase transition"
+              :class="activeTab === tab ? 'bg-surface text-brand-700 shadow-sm dark:text-brand-300' : 'text-muted hover:text-fg'"
+              @click="activeTab = tab"
+            >
+              {{ tab }}
+            </button>
           </div>
-          <div class="toolbar-actions">
-            <button class="btn btn--outline btn--sm" @click="formatHtml">Format</button>
-            <button class="btn btn--primary btn--sm" @click="saveHtml" :disabled="isSaving">
+          <div class="flex min-w-0 items-center gap-2">
+            <span v-if="draftStatusLabel" class="inline-flex items-center gap-1.5 text-xs text-muted">
+              <span class="size-1.5 rounded-full" :class="draftDotClass" />
+              {{ draftStatusLabel }}
+            </span>
+            <span v-if="savedFilename" class="max-w-[140px] truncate text-xs text-muted">{{ savedFilename }}</span>
+            <button type="button" class="btn btn-ghost btn-sm" :disabled="isFormatting" :title="`Format ${activeTab.toUpperCase()}`" @click="formatActive">
+              {{ isFormatting ? 'Formatting…' : 'Format' }}
+            </button>
+            <button type="button" class="btn btn-primary btn-sm" :disabled="isSaving" @click="saveHtml">
               {{ isSaving ? 'Saving…' : (saveStatus === 'done' ? '✓ Saved' : 'Save HTML') }}
             </button>
-            <span v-if="draftStatusLabel" class="saved-label">{{ draftStatusLabel }}</span>
-            <span v-if="savedFilename" class="saved-label">{{ savedFilename }}</span>
           </div>
         </div>
-        <div class="editor-wrap">
+        <div class="editor-wrap flex flex-1 flex-col overflow-hidden">
           <ClientOnly>
             <codemirror
               v-if="activeTab === 'html'"
@@ -72,32 +69,83 @@
               @change="onEditorChange"
             />
             <template #fallback>
-              <textarea v-if="activeTab === 'html'" v-model="htmlContent" class="fallback-textarea" spellcheck="false" />
-              <textarea v-else v-model="cssContent" class="fallback-textarea" spellcheck="false" />
+              <textarea
+                v-if="activeTab === 'html'"
+                v-model="htmlContent"
+                class="size-full flex-1 resize-none bg-surface p-4 font-mono text-[13px] outline-none"
+                spellcheck="false"
+              />
+              <textarea
+                v-else
+                v-model="cssContent"
+                class="size-full flex-1 resize-none bg-surface p-4 font-mono text-[13px] outline-none"
+                spellcheck="false"
+              />
             </template>
           </ClientOnly>
         </div>
       </div>
 
-      <div class="divider" @mousedown="startResize" />
+      <div
+        class="group relative w-1.5 shrink-0 cursor-col-resize bg-line transition hover:bg-brand-500"
+        :class="{ 'bg-brand-500': isResizing }"
+        @mousedown="startResize"
+      >
+        <span class="absolute top-1/2 left-1/2 h-8 w-0.5 -translate-1/2 rounded-full bg-muted/50 group-hover:bg-white/80" />
+      </div>
 
-      <div class="pane pane--preview" :style="{ width: previewWidth + 'px' }">
-        <div class="pane__toolbar">
-          <span class="pane__title">Preview</span>
-          <div class="toolbar-actions">
-            <button class="btn btn--outline btn--sm" @click="refreshPreview">↻ Refresh</button>
-            <label class="toggle-label">
-              <input type="checkbox" v-model="livePreview" />
+      <div class="flex shrink-0 flex-col overflow-hidden" :style="{ width: previewWidth + 'px' }">
+        <div class="flex h-11 shrink-0 items-center justify-between gap-2 border-b border-line bg-surface px-3">
+          <div class="flex items-center gap-1">
+            <div class="flex rounded-lg bg-surface-2 p-0.5" role="radiogroup" aria-label="Viewport size">
+              <button
+                v-for="(preset, key) in viewportPresets"
+                :key="key"
+                type="button"
+                role="radio"
+                :aria-checked="activePreset === key"
+                :title="preset.width ? `${preset.label} · ${preset.width} × ${preset.height}` : preset.label"
+                class="grid size-7 cursor-pointer place-items-center rounded-md transition"
+                :class="activePreset === key ? 'bg-surface text-brand-700 shadow-sm dark:text-brand-300' : 'text-muted hover:text-fg'"
+                @click="activePreset = key"
+              >
+                <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path :d="preset.icon" /></svg>
+              </button>
+            </div>
+            <button
+              type="button"
+              title="Rotate"
+              class="grid size-7 cursor-pointer place-items-center rounded-md text-muted transition hover:text-fg disabled:cursor-not-allowed disabled:opacity-40"
+              :class="{ 'text-brand-600 dark:text-brand-300': isLandscape }"
+              :disabled="!viewportPresets[activePreset].rotatable"
+              @click="isLandscape = !isLandscape"
+            >
+              <svg class="size-4 transition" :class="{ 'rotate-90': isLandscape }" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7L21 8M21 3v5h-5" /></svg>
+            </button>
+          </div>
+          <div class="flex items-center gap-2">
+            <button type="button" class="btn btn-ghost btn-sm" title="Refresh preview" @click="refreshPreview">↻</button>
+            <label class="inline-flex cursor-pointer items-center gap-2 text-xs text-muted select-none">
+              <input v-model="livePreview" type="checkbox" class="peer sr-only" />
+              <span class="relative h-4 w-7 rounded-full bg-surface-2 ring-1 ring-line transition peer-checked:bg-brand-500 peer-checked:ring-brand-500 after:absolute after:top-0.5 after:left-0.5 after:size-3 after:rounded-full after:bg-white after:shadow after:transition peer-checked:after:translate-x-3" />
               Live
             </label>
           </div>
         </div>
-        <iframe
-          ref="previewFrame"
-          class="preview-frame"
-          :class="{ 'preview-frame--resizing': isResizing }"
-          sandbox="allow-scripts allow-same-origin"
-        />
+        <div ref="stageRef" class="relative flex-1 overflow-hidden bg-surface-2 p-3 pb-9">
+          <div class="mx-auto overflow-hidden rounded-lg bg-white shadow-sm ring-1 ring-line" :style="frameBoxStyle">
+            <iframe
+              ref="previewFrame"
+              class="block border-0 bg-white"
+              :class="{ 'pointer-events-none': isResizing }"
+              :style="iframeStyle"
+              sandbox="allow-same-origin"
+            />
+          </div>
+          <span class="absolute bottom-2 left-1/2 -translate-x-1/2 rounded-full bg-surface px-2.5 py-0.5 font-mono text-[11px] whitespace-nowrap text-muted ring-1 ring-line">
+            {{ viewportLabel }}
+          </span>
+        </div>
       </div>
     </section>
   </div>
@@ -110,6 +158,7 @@ import { html } from '@codemirror/lang-html'
 import { css as cssLang } from '@codemirror/lang-css'
 import { oneDark } from '@codemirror/theme-one-dark'
 import { EditorView } from '@codemirror/view'
+import { Prec } from '@codemirror/state'
 
 // ── Route (draft identity) ────────────────────────────────────────────────────
 const route = useRoute()
@@ -118,17 +167,30 @@ const pageNum = computed(() => Number(route.params.page_num) || 1)
 
 // ── Editor ──────────────────────────────────────────────────────────────────
 const htmlContent = ref('')
+const { isDark } = useTheme()
 
-const htmlExtensions = [
-  html(),
-  oneDark,
-  EditorView.lineWrapping,
-]
-const cssExtensions = [
-  cssLang(),
-  oneDark,
-  EditorView.lineWrapping,
-]
+const sharedEditorTheme = EditorView.theme({
+  '&': { height: '100%', fontSize: '13px', backgroundColor: 'var(--surface)' },
+  '.cm-scroller': { fontFamily: '"JetBrains Mono", "Cascadia Code", Consolas, monospace' },
+  '.cm-gutters': { backgroundColor: 'var(--surface)', color: 'var(--muted)', border: 'none' },
+  '&.cm-focused': { outline: 'none' },
+})
+
+const lightEditorTheme = EditorView.theme({
+  '&': { color: 'var(--text)' },
+  '.cm-content': { caretColor: '#0d9488' },
+  '&.cm-focused .cm-cursor': { borderLeftColor: '#0d9488' },
+  '.cm-activeLine': { backgroundColor: 'rgb(20 184 166 / .06)' },
+  '.cm-activeLineGutter': { backgroundColor: 'rgb(20 184 166 / .1)', color: '#0f766e' },
+  '&.cm-focused > .cm-scroller > .cm-selectionLayer .cm-selectionBackground, .cm-selectionBackground': { backgroundColor: 'rgb(20 184 166 / .2)' },
+})
+
+const themeExtensions = computed(() => isDark.value
+  ? [oneDark, Prec.highest(sharedEditorTheme)]
+  : [lightEditorTheme, Prec.highest(sharedEditorTheme)])
+
+const htmlExtensions = computed(() => [html(), EditorView.lineWrapping, ...themeExtensions.value])
+const cssExtensions = computed(() => [cssLang(), EditorView.lineWrapping, ...themeExtensions.value])
 
 const activeTab = ref<'html' | 'css'>('html')
 const livePreview = ref(true)
@@ -164,27 +226,73 @@ watch([htmlContent, cssContent], () => {
   if (livePreview.value) refreshPreview()
 })
 
-// ── HTML / CSS Upload ────────────────────────────────────────────────────────
-const htmlInput = ref<HTMLInputElement | null>(null)
-const htmlFile = ref<File | null>(null)
-const cssInput = ref<HTMLInputElement | null>(null)
-const cssFile = ref<File | null>(null)
-
-async function onHtmlFileChange(e: Event) {
-  const file = (e.target as HTMLInputElement).files?.[0]
-  if (!file) return
-  htmlFile.value = file
-  htmlContent.value = await file.text()
-  refreshPreview()
+// ── Viewport presets ───────────────────────────────────────────────────────────────
+const viewportPresets = {
+  fit: { label: 'Fit to pane', width: 0, height: 0, rotatable: false, icon: 'M4 9V5h4M20 9V5h-4M4 15v4h4M20 15v4h-4' },
+  mobile: { label: 'Mobile', width: 390, height: 844, rotatable: true, icon: 'M8 2h8a2 2 0 0 1 2 2v16a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2zM11 18h2' },
+  tablet: { label: 'Tablet', width: 768, height: 1024, rotatable: true, icon: 'M6 2h12a2 2 0 0 1 2 2v16a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2zM11 18h2' },
+  laptop: { label: 'Laptop', width: 1366, height: 768, rotatable: false, icon: 'M4 5h16v11H4zM2 19h20' },
+  desktop: { label: 'Desktop', width: 1920, height: 1080, rotatable: false, icon: 'M3 4h18v12H3zM8 20h8M12 16v4' },
 }
+type PresetKey = keyof typeof viewportPresets
 
-async function onCssFileChange(e: Event) {
-  const file = (e.target as HTMLInputElement).files?.[0]
-  if (!file) return
-  cssFile.value = file
-  cssContent.value = await file.text()
-  refreshPreview()
-}
+const activePreset = ref<PresetKey>('fit')
+const isLandscape = ref(false)
+const stageRef = ref<HTMLElement | null>(null)
+const stageSize = ref({ width: 0, height: 0 })
+let stageObserver: ResizeObserver | null = null
+
+const frameSize = computed(() => {
+  const p = viewportPresets[activePreset.value]
+  if (!p.width) return null
+  return p.rotatable && isLandscape.value
+    ? { width: p.height, height: p.width }
+    : { width: p.width, height: p.height }
+})
+
+// Render at the real device size, then scale down so the whole screen fits the pane.
+const frameScale = computed(() => {
+  const f = frameSize.value
+  const s = stageSize.value
+  if (!f || !s.width || !s.height) return 1
+  return Math.min(1, s.width / f.width, s.height / f.height)
+})
+
+const frameBoxStyle = computed(() => {
+  const f = frameSize.value
+  if (!f) return { width: '100%', height: '100%' }
+  return { width: `${f.width * frameScale.value}px`, height: `${f.height * frameScale.value}px` }
+})
+
+const iframeStyle = computed(() => {
+  const f = frameSize.value
+  if (!f) return { width: '100%', height: '100%' }
+  return {
+    width: `${f.width}px`,
+    height: `${f.height}px`,
+    transform: `scale(${frameScale.value})`,
+    transformOrigin: 'top left',
+  }
+})
+
+const viewportLabel = computed(() => {
+  const f = frameSize.value
+  if (!f) return `${Math.round(stageSize.value.width)} × ${Math.round(stageSize.value.height)}`
+  return `${f.width} × ${f.height} · ${Math.round(frameScale.value * 100)}%`
+})
+
+watch(activePreset, () => { isLandscape.value = false })
+
+onMounted(() => {
+  if (!stageRef.value) return
+  stageObserver = new ResizeObserver(([entry]) => {
+    if (!entry) return
+    stageSize.value = { width: entry.contentRect.width, height: entry.contentRect.height }
+  })
+  stageObserver.observe(stageRef.value)
+})
+
+onUnmounted(() => stageObserver?.disconnect())
 
 // ── Draft autosave (IndexedDB → DynamoDB) ─────────────────────────────────────
 const draftSync = useDraftSync({
@@ -199,6 +307,11 @@ const draftStatusLabel = computed(() => {
   return map[draftSync.status.value] ?? ''
 })
 
+const draftDotClass = computed(() => {
+  const map: Record<string, string> = { local: 'bg-amber-400 animate-pulse', saving: 'bg-amber-400 animate-pulse', saved: 'bg-brand-500', error: 'bg-red-500' }
+  return map[draftSync.status.value] ?? 'bg-muted'
+})
+
 // Guards the restore path so loading a draft doesn't re-trigger a save.
 let suppressDraft = false
 
@@ -207,8 +320,15 @@ async function restoreDraft() {
   try {
     const data = await draftSync.load()
     if (data) {
-      htmlContent.value = data.html ?? ''
-      cssContent.value = data.css ?? ''
+      const html = data.html ?? ''
+      const css = data.css ?? ''
+      // Never block loading the draft on a formatter failure.
+      const [nextHtml, nextCss] = await Promise.all([
+        looksMinified(html) ? formatHtmlCode(html).catch(() => html) : html,
+        looksMinified(css) ? formatCssCode(css).catch(() => css) : css,
+      ])
+      htmlContent.value = nextHtml
+      cssContent.value = nextCss
     }
   } finally {
     await nextTick()
@@ -256,12 +376,18 @@ async function saveHtml() {
   }
 }
 
-// ── Format HTML ──────────────────────────────────────────────────────────────
-function formatHtml() {
+// ── Format ────────────────────────────────────────────────────────────────────────────
+const isFormatting = ref(false)
+
+async function formatActive() {
+  isFormatting.value = true
   try {
-    htmlContent.value = htmlContent.value.replace(/\n{3,}/g, '\n\n').trim()
-  } catch {
-    // ignore
+    if (activeTab.value === 'html') htmlContent.value = await formatHtmlCode(htmlContent.value)
+    else cssContent.value = await formatCssCode(cssContent.value)
+  } catch (err) {
+    console.error('[formatActive] failed:', err)
+  } finally {
+    isFormatting.value = false
   }
 }
 
@@ -305,258 +431,11 @@ onUnmounted(() => {
   document.removeEventListener('mousemove', doResize)
   document.removeEventListener('mouseup', stopResize)
 })
+
+useHead({ title: () => `Page ${pageNum.value} · Reflow` })
 </script>
 
 <style scoped>
-* { box-sizing: border-box; }
-
-.app {
-  display: flex;
-  flex-direction: column;
-  height: 100vh;
-  overflow: hidden;
-  background: #1a1a2e;
-  color: #e0e0e0;
-  font-family: 'Segoe UI', system-ui, sans-serif;
-}
-
-/* Header */
-.header {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-  padding: 0.6rem 1.2rem;
-  background: #16213e;
-  border-bottom: 1px solid #0f3460;
-  flex-shrink: 0;
-}
-.header h1 {
-  margin: 0;
-  font-size: 1.1rem;
-  font-weight: 600;
-  color: #e94560;
-  letter-spacing: 0.03em;
-}
-.back-link {
-  color: #aaa;
-  text-decoration: none;
-  font-size: 0.82rem;
-  padding: 0.2rem 0.5rem;
-  border: 1px solid #0f3460;
-  border-radius: 5px;
-  transition: border-color 0.15s, color 0.15s;
-}
-.back-link:hover { border-color: #aaa; color: #fff; }
-.page-tag {
-  margin-left: auto;
-  font-size: 0.75rem;
-  color: #888;
-}
-
-/* Upload */
-.upload-section {
-  padding: 0.4rem 1rem;
-  flex-shrink: 0;
-  background: #16213e;
-  border-bottom: 1px solid #0f3460;
-}
-
-.upload-row {
-  display: flex;
-  align-items: center;
-  gap: 0;
-  flex-wrap: wrap;
-  row-gap: 0.3rem;
-}
-
-.file-input { display: none; }
-
-.upload-slot {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.2rem 0.5rem;
-}
-.upload-slot--active .upload-slot__btn { color: #e0e0e0; border-color: #e94560; }
-
-.upload-slot__btn {
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
-  background: transparent;
-  border: 1px solid #0f3460;
-  border-radius: 5px;
-  color: #888;
-  font-size: 0.78rem;
-  padding: 0.22rem 0.55rem;
-  cursor: pointer;
-  transition: border-color 0.15s, color 0.15s;
-  max-width: 220px;
-}
-.upload-slot__btn:hover { border-color: #aaa; color: #fff; }
-
-.upload-slot__label {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  max-width: 160px;
-}
-
-.upload-divider {
-  width: 1px;
-  height: 24px;
-  background: #0f3460;
-  margin: 0 0.2rem;
-  flex-shrink: 0;
-}
-
-.file-size { color: #888; font-size: 0.72rem; white-space: nowrap; }
-
-.error-msg {
-  margin: 0.3rem 0 0;
-  font-size: 0.8rem;
-  color: #e94560;
-}
-
-/* Workspace split */
-.workspace {
-  display: flex;
-  flex: 1;
-  overflow: hidden;
-}
-
-.pane {
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  min-width: 0;
-}
-.pane--editor { flex: 1; }
-.pane--preview { flex-shrink: 0; background: #fff; }
-
-.pane__toolbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0.35rem 0.75rem;
-  background: #16213e;
-  border-bottom: 1px solid #0f3460;
-  flex-shrink: 0;
-}
-.pane__title {
-  font-size: 0.75rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: #888;
-}
-.tabs {
-  display: flex;
-  gap: 0.25rem;
-}
-.tab {
-  background: transparent;
-  border: none;
-  color: #888;
-  font-size: 0.75rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  padding: 0.15rem 0.5rem;
-  border-radius: 4px;
-  cursor: pointer;
-  transition: color 0.15s, background 0.15s;
-}
-.tab:hover { color: #fff; }
-.tab--active { color: #fff; background: #0f3460; }
-.toolbar-actions {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.editor-wrap {
-  flex: 1;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-}
-
-.editor-wrap :deep(.cm-editor) {
-  height: 100%;
-  font-size: 13px;
-}
-.editor-wrap :deep(.cm-scroller) {
-  overflow: auto;
-  font-family: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
-}
-
-.fallback-textarea {
-  flex: 1;
-  width: 100%;
-  height: 100%;
-  background: #282c34;
-  color: #abb2bf;
-  border: none;
-  padding: 1rem;
-  font-family: monospace;
-  font-size: 13px;
-  resize: none;
-  outline: none;
-}
-
-.preview-frame {
-  flex: 1;
-  width: 100%;
-  border: none;
-  background: #fff;
-}
-.preview-frame--resizing { pointer-events: none; }
-
-/* Divider */
-.divider {
-  width: 5px;
-  background: #0f3460;
-  cursor: col-resize;
-  flex-shrink: 0;
-  transition: background 0.15s;
-}
-.divider:hover { background: #e94560; }
-
-/* Buttons */
-.btn {
-  padding: 0.25rem 0.7rem;
-  border-radius: 4px;
-  font-size: 0.78rem;
-  font-weight: 500;
-  cursor: pointer;
-  border: none;
-  transition: opacity 0.15s;
-}
-.btn:disabled { opacity: 0.5; cursor: not-allowed; }
-.btn--primary { background: #e94560; color: #fff; }
-.btn--primary:hover:not(:disabled) { background: #c73652; }
-.btn--outline { background: transparent; color: #aaa; border: 1px solid #0f3460; }
-.btn--outline:hover:not(:disabled) { border-color: #aaa; color: #fff; }
-.btn--sm { padding: 0.2rem 0.5rem; font-size: 0.75rem; }
-
-.saved-label {
-  font-size: 0.72rem;
-  color: #888;
-  max-width: 140px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-/* Toggle */
-.toggle-label {
-  display: flex;
-  align-items: center;
-  gap: 0.3rem;
-  font-size: 0.78rem;
-  color: #aaa;
-  cursor: pointer;
-  user-select: none;
-}
+.editor-wrap :deep(.cm-editor) { height: 100%; }
+.editor-wrap :deep(.cm-scroller) { overflow: auto; }
 </style>
