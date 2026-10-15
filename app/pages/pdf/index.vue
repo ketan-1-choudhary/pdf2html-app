@@ -119,7 +119,7 @@
         enter-from-class="opacity-0 translate-y-2"
       >
         <li v-for="pdf in filtered" :key="pdf.pdf_id">
-          <PdfTile :pdf="pdf" class="h-full" />
+          <PdfTile :pdf="pdf" :exporting="exportingId === pdf.pdf_id" class="h-full" @export="exportPdf(pdf.pdf_id)" />
         </li>
       </TransitionGroup>
     </main>
@@ -145,6 +145,18 @@ const filtered = computed(() => {
   const q = query.value.trim().toLowerCase()
   return q ? drafts.value.filter(d => d.pdf_name.toLowerCase().includes(q)) : drafts.value
 })
+
+const { download, error: exportError } = useZipDownload()
+const exportingId = ref<string | null>(null)
+
+async function exportPdf(pdfId: string) {
+  if (exportingId.value) return
+  exportingId.value = pdfId
+  listError.value = ''
+  await download(`/api/pdf/${encodeURIComponent(pdfId)}/export`)
+  if (exportError.value) listError.value = exportError.value
+  exportingId.value = null
+}
 
 const user = useCurrentUser()
 const menuOpen = ref(false)

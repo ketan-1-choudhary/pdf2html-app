@@ -12,8 +12,31 @@
       <span class="h-5 w-px bg-line" />
       <AppLogo to="/pdf" class="hidden sm:inline-flex" />
       <span class="rounded-md bg-brand-500/10 px-2 py-0.5 text-xs font-semibold text-brand-700 ring-1 ring-brand-500/25 dark:text-brand-300">
-        Page {{ pageNum }}
+        Page {{ pageNum }}<span v-if="totalPages"> / {{ totalPages }}</span>
       </span>
+
+      <nav class="flex items-center gap-1" aria-label="Page navigation">
+        <button
+          type="button"
+          class="grid size-8 cursor-pointer place-items-center rounded-lg text-muted transition hover:bg-surface-2 hover:text-fg disabled:cursor-not-allowed disabled:opacity-35"
+          aria-label="Previous page"
+          title="Previous page"
+          :disabled="pageNum <= 1"
+          @click="goToPage(pageNum - 1)"
+        >
+          <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6" /></svg>
+        </button>
+        <button
+          type="button"
+          class="grid size-8 cursor-pointer place-items-center rounded-lg text-muted transition hover:bg-surface-2 hover:text-fg disabled:cursor-not-allowed disabled:opacity-35"
+          aria-label="Next page"
+          title="Next page"
+          :disabled="!totalPages || pageNum >= totalPages"
+          @click="goToPage(pageNum + 1)"
+        >
+          <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6" /></svg>
+        </button>
+      </nav>
 
       <div class="ml-auto flex items-center gap-2">
         <ThemeToggle />
@@ -41,12 +64,13 @@
               <span class="size-1.5 rounded-full" :class="draftDotClass" />
               {{ draftStatusLabel }}
             </span>
-            <span v-if="savedFilename" class="max-w-[140px] truncate text-xs text-muted">{{ savedFilename }}</span>
+            <span v-if="exportError" class="max-w-[220px] truncate text-xs text-red-600 dark:text-red-300" :title="exportError">{{ exportError }}</span>
             <button type="button" class="btn btn-ghost btn-sm" :disabled="isFormatting" :title="`Format ${activeTab.toUpperCase()}`" @click="formatActive">
               {{ isFormatting ? 'Formatting…' : 'Format' }}
             </button>
-            <button type="button" class="btn btn-primary btn-sm" :disabled="isSaving" @click="saveHtml">
-              {{ isSaving ? 'Saving…' : (saveStatus === 'done' ? '✓ Saved' : 'Save HTML') }}
+            <button type="button" class="btn btn-primary btn-sm" :disabled="isExporting" title="Download this page as HTML, CSS and assets (.zip)" @click="exportPage">
+              <svg class="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11M7 10l5 5 5-5M5 20h14" /></svg>
+              {{ isExporting ? 'Exporting…' : 'Export' }}
             </button>
           </div>
         </div>
@@ -104,7 +128,7 @@
                 type="button"
                 role="radio"
                 :aria-checked="activePreset === key"
-                :title="preset.width ? `${preset.label} · ${preset.width} × ${preset.height}` : preset.label"
+                :title="preset.width ? `${preset.label} · ${preset.width}px wide` : preset.label"
                 class="grid size-7 cursor-pointer place-items-center rounded-md transition"
                 :class="activePreset === key ? 'bg-surface text-brand-700 shadow-sm dark:text-brand-300' : 'text-muted hover:text-fg'"
                 @click="activePreset = key"
@@ -164,6 +188,14 @@ import { Prec } from '@codemirror/state'
 const route = useRoute()
 const pdfId = computed(() => String(route.params.pdf_id))
 const pageNum = computed(() => Number(route.params.page_num) || 1)
+
+const { data: pdfList } = await useFetch<{ drafts: { pdf_id: string, total_pages: number }[] }>('/api/pdf')
+const totalPages = computed(() => pdfList.value?.drafts.find(pdf => pdf.pdf_id === pdfId.value)?.total_pages ?? 0)
+
+function goToPage(page: number) {
+  if (page < 1 || (totalPages.value && page > totalPages.value)) return
+  void navigateTo(`/pdf/${encodeURIComponent(pdfId.value)}/page/${page}`)
+}
 
 // ── Editor ──────────────────────────────────────────────────────────────────
 const htmlContent = ref('')
@@ -242,43 +274,42 @@ const stageRef = ref<HTMLElement | null>(null)
 const stageSize = ref({ width: 0, height: 0 })
 let stageObserver: ResizeObserver | null = null
 
-const frameSize = computed(() => {
+// Presets only fix the width; landscape uses the preset's long edge as the width.
+const frameWidth = computed(() => {
   const p = viewportPresets[activePreset.value]
   if (!p.width) return null
-  return p.rotatable && isLandscape.value
-    ? { width: p.height, height: p.width }
-    : { width: p.width, height: p.height }
+  return p.rotatable && isLandscape.value ? p.height : p.width
 })
 
-// Render at the real device size, then scale down so the whole screen fits the pane.
+// Like DevTools device mode: scale only to fit the width, and let the height fill the pane.
 const frameScale = computed(() => {
-  const f = frameSize.value
+  const w = frameWidth.value
   const s = stageSize.value
-  if (!f || !s.width || !s.height) return 1
-  return Math.min(1, s.width / f.width, s.height / f.height)
+  if (!w || !s.width) return 1
+  return Math.min(1, s.width / w)
 })
 
 const frameBoxStyle = computed(() => {
-  const f = frameSize.value
-  if (!f) return { width: '100%', height: '100%' }
-  return { width: `${f.width * frameScale.value}px`, height: `${f.height * frameScale.value}px` }
+  const w = frameWidth.value
+  if (!w) return { width: '100%', height: '100%' }
+  return { width: `${w * frameScale.value}px`, height: '100%' }
 })
 
 const iframeStyle = computed(() => {
-  const f = frameSize.value
-  if (!f) return { width: '100%', height: '100%' }
+  const w = frameWidth.value
+  if (!w) return { width: '100%', height: '100%' }
   return {
-    width: `${f.width}px`,
-    height: `${f.height}px`,
+    width: `${w}px`,
+    height: `${stageSize.value.height / frameScale.value}px`,
     transform: `scale(${frameScale.value})`,
     transformOrigin: 'top left',
   }
 })
 
 const viewportLabel = computed(() => {
-  const f = frameSize.value
-  if (!f) return `${Math.round(stageSize.value.width)} × ${Math.round(stageSize.value.height)}`
-  return `${f.width} × ${f.height} · ${Math.round(frameScale.value * 100)}%`
+  const w = frameWidth.value
+  if (!w) return `${Math.round(stageSize.value.width)}px wide`
+  return `${w}px wide · ${Math.round(frameScale.value * 100)}%`
 })
 
 watch(activePreset, () => { isLandscape.value = false })
@@ -353,27 +384,17 @@ onMounted(() => {
 
 onUnmounted(() => draftSync.stop())
 
-// ── HTML Save ────────────────────────────────────────────────────────────────
-const isSaving = ref(false)
-const saveStatus = ref<'idle' | 'done'>('idle')
-const savedFilename = ref('')
+// ── Export ──────────────────────────────────────────────────────────────────
+const { download, isDownloading: isExporting, error: exportError } = useZipDownload()
 
-async function saveHtml() {
-  isSaving.value = true
-  saveStatus.value = 'idle'
-  try {
-    const res = await $fetch<{ filename: string }>('/api/save-html', {
-      method: 'POST',
-      body: { filename: `${pdfId.value}.html`, content: composeHtml(htmlContent.value, cssContent.value) },
-    })
-    savedFilename.value = res.filename
-    saveStatus.value = 'done'
-  } catch (err: any) {
-    console.error('[saveHtml] failed:', err)
-    alert(err?.data?.statusMessage ?? 'Save failed.')
-  } finally {
-    isSaving.value = false
+async function exportPage() {
+  // Export reads from the server, so push any unsynced edits first.
+  await draftSync.flushNow()
+  if (draftSync.status.value === 'error') {
+    exportError.value = 'Could not save your latest edits — export cancelled.'
+    return
   }
+  await download(`/api/pdf/${encodeURIComponent(pdfId.value)}/page/${pageNum.value}/export`)
 }
 
 // ── Format ────────────────────────────────────────────────────────────────────────────

@@ -1,7 +1,8 @@
 <template>
+  <div class="group relative flex">
   <NuxtLink
     :to="`/pdf/${pdf.pdf_id}/page/1`"
-    class="card group relative flex flex-col overflow-hidden transition duration-300 hover:-translate-y-1 hover:border-brand-500/50 hover:shadow-xl hover:shadow-brand-900/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500 dark:hover:shadow-black/40"
+    class="card relative flex flex-1 flex-col overflow-hidden transition duration-300 group-hover:-translate-y-1 group-hover:border-brand-500/50 group-hover:shadow-xl group-hover:shadow-brand-900/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500 dark:group-hover:shadow-black/40"
   >
     <!-- Preview -->
     <div class="relative aspect-[4/3] overflow-hidden bg-surface-2">
@@ -62,6 +63,19 @@
       </div>
     </div>
   </NuxtLink>
+
+  <!-- Sibling of the link, not nested: interactive elements can't live inside <a>. -->
+  <button
+    type="button"
+    class="absolute top-3 left-3 z-10 inline-flex cursor-pointer items-center gap-1.5 rounded-full bg-surface/90 px-2.5 py-1 text-[11px] font-semibold text-fg ring-1 ring-line backdrop-blur transition duration-300 group-hover:-translate-y-1 hover:text-brand-700 hover:ring-brand-500/50 disabled:cursor-not-allowed disabled:opacity-50 dark:hover:text-brand-300"
+    :disabled="status !== 'ready' || exporting"
+    :title="status === 'ready' ? 'Download the whole document as HTML, CSS and assets (.zip)' : 'Export is available once every page is converted'"
+    @click="emit('export')"
+  >
+    <svg class="size-3.5" :class="{ 'animate-bounce': exporting }" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11M7 10l5 5 5-5M5 20h14" /></svg>
+    {{ exporting ? 'Exporting…' : 'Export' }}
+  </button>
+  </div>
 </template>
 
 <script setup lang="ts">
@@ -72,7 +86,8 @@ export interface PdfSummary {
   total_pages: number
 }
 
-const props = defineProps<{ pdf: PdfSummary }>()
+const props = defineProps<{ pdf: PdfSummary, exporting?: boolean }>()
+const emit = defineEmits<{ export: [] }>()
 
 const status = computed<'queued' | 'converting' | 'ready'>(() => {
   const { completed_pages: done, total_pages: total } = props.pdf
